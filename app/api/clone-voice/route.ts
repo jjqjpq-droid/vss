@@ -75,9 +75,28 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ audioUrl })
   } catch (error) {
-    console.error('[v0] clone-voice error:', error)
-    const message =
-      error instanceof Error ? error.message : 'Failed to generate speech.'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const status = (error as unknown as { status?: number })?.status
+    const detail = (
+      error as unknown as { body?: { detail?: string } }
+    )?.body?.detail
+    const rawMessage =
+      detail ??
+      (error instanceof Error ? error.message : 'Failed to generate speech.')
+
+    console.error('[v0] clone-voice error:', status, rawMessage)
+
+    // fal returns 403 with a "locked / Exhausted balance" detail when the
+    // connected fal account has no inference credit left.
+    const isBalanceIssue =
+      status === 403 && /balance|locked|top up/i.test(rawMessage)
+
+    const message = isBalanceIssue
+      ? 'Voice cloning is temporarily unavailable — the fal AI credits for this app are used up. Add credit at fal.ai/dashboard/billing to re-enable cloning. The free "Free voices" tab still works for instant text-to-speech.'
+      : rawMessage
+
+    return NextResponse.json(
+      { error: message, code: isBalanceIssue ? 'NO_CREDIT' : 'ERROR' },
+      { status: isBalanceIssue ? 402 : 500 },
+    )
   }
 }

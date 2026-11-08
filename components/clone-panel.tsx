@@ -21,6 +21,7 @@ export function ClonePanel({ text }: { text: string }) {
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errorCode, setErrorCode] = useState<string | null>(null)
   const [resultUrl, setResultUrl] = useState<string | null>(null)
   const [recording, setRecording] = useState(false)
 
@@ -77,6 +78,7 @@ export function ClonePanel({ text }: { text: string }) {
     if (!sample || !text.trim()) return
     setLoading(true)
     setError(null)
+    setErrorCode(null)
     setResultUrl(null)
     try {
       const form = new FormData()
@@ -89,7 +91,10 @@ export function ClonePanel({ text }: { text: string }) {
         body: form,
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to generate speech.')
+      if (!res.ok) {
+        setErrorCode(data.code ?? null)
+        throw new Error(data.error ?? 'Failed to generate speech.')
+      }
       setResultUrl(data.audioUrl)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -208,7 +213,19 @@ export function ClonePanel({ text }: { text: string }) {
       {error && (
         <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="mt-0.5 size-4 shrink-0" />
-          <span>{error}</span>
+          <div className="space-y-2">
+            <p>{error}</p>
+            {errorCode === 'NO_CREDIT' && (
+              <a
+                href="https://fal.ai/dashboard/billing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground"
+              >
+                Open fal billing
+              </a>
+            )}
+          </div>
         </div>
       )}
 
